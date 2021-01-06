@@ -147,6 +147,7 @@ class WorkerMap(object):
         List of removed worker types.
         """
         spin_downs = []
+        container_switch_count = 0
         for worker_type in self.total_worker_type_counts:
             if worker_type == 'unused':
                 continue
@@ -163,7 +164,9 @@ class WorkerMap(object):
             logger.debug("[SPIN DOWN] Removing {} workers of type {}".format(num_remove, worker_type))
             for i in range(num_remove):
                 spin_downs.append(worker_type)
-        return spin_downs
+            if not check_idle:
+               container_switch_count += num_remove 
+        return spin_downs, container_switch_count
 
     def add_worker(self, worker_id=str(random.random()),
                    mode='no_container',
@@ -217,7 +220,8 @@ class WorkerMap(object):
             # Theta
             # modded_cmd = f'singularity exec -H /home/skluzacek/ -H /project2/chard/skluzacek/ /home/skluzacek/{container_uri} {cmd}' 
             # Midway2
-            modded_cmd = f'singularity exec -H /home/skluzacek --bind /project2/chard/skluzacek:/project2/chard/skluzacek /home/skluzacek/{container_uri} {cmd}'
+            # modded_cmd = f'singularity exec -H /home/skluzacek --bind /project2/chard/skluzacek:/project2/chard/skluzacek /home/skluzacek/{container_uri} {cmd}'
+            modded_cmd = f'singularity exec -H /home/ {container_uri} {cmd}'
             logger.info("Command string with singularity:\n {}".format(modded_cmd))
         else:
             raise NameError("Invalid container launch mode.")
@@ -257,6 +261,7 @@ class WorkerMap(object):
         new_worker_list = []
         logger.debug(f"[GET_NEXT_WORKER] total_worker_type_counts: {self.total_worker_type_counts}")
         logger.debug(f"[GET_NEXT_WORKER] pending_worker_type_counts: {self.pending_worker_type_counts}")
+        logger.debug(f"[GET_NEXT_WORKER] new_worker_map: {new_worker_map}")
         for worker_type in new_worker_map:
             cur_workers = self.total_worker_type_counts.get(worker_type, 0) + self.pending_worker_type_counts.get(worker_type, 0)
             if new_worker_map[worker_type] > cur_workers:

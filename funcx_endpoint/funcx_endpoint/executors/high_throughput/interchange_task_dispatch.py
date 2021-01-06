@@ -25,8 +25,8 @@ def naive_interchange_task_dispatch(interesting_managers,
 
     elif scheduler_mode == 'soft':
         task_dispatch, dispatched_tasks = {}, 0
-        for loop in ['first', 'second']:
-        # for loop in ['second']:
+        # for loop in ['first', 'second']:
+        for loop in ['second']:
             task_dispatch, dispatched_tasks = dispatch(interesting_managers,
                                                        pending_task_queue,
                                                        ready_manager_queue,
@@ -51,9 +51,9 @@ def dispatch(interesting_managers,
     if not task_dispatch:
         task_dispatch = {}
     if interesting_managers:
-        shuffled_managers = list(interesting_managers)
-        random.shuffle(shuffled_managers)
-        for manager in shuffled_managers:
+        #shuffled_managers = list(interesting_managers)
+        #random.shuffle(shuffled_managers)
+        for manager in list(interesting_managers):
             tasks_inflight = ready_manager_queue[manager]['total_tasks']
             real_capacity = min(ready_manager_queue[manager]['free_capacity']['total_workers'],
                                 ready_manager_queue[manager]['max_worker_count'] - tasks_inflight)

@@ -209,6 +209,7 @@ class Interchange(object):
         self.containers = {}
         self.total_pending_task_count = 0
         self.fxs = FuncXClient()
+        self.fxs.throttling_enabled = False
 
         logger.info("Interchange address is {}".format(self.interchange_address))
         self.worker_ports = worker_ports
@@ -278,6 +279,7 @@ class Interchange(object):
 
         self.tasks = set()
         self.task_status_deltas = {}
+        self.container_switch_count = {}
 
     def load_config(self):
         """ Load the config
@@ -679,7 +681,7 @@ class Interchange(object):
             for manager in task_dispatch:
                 tasks = task_dispatch[manager]
                 if tasks:
-                    logger.info("[MAIN] Sending {} task messages to manager {}".format(len(tasks), manager))
+                    logger.info("[MAIN] Sending {} task messages to manager {}".format(tasks, manager))
                     self.task_outgoing.send_multipart([manager, b'', pickle.dumps(tasks)])
                     for task in tasks:
                         task_id = task["task_id"]
@@ -696,7 +698,7 @@ class Interchange(object):
                     # We expect the batch of messages to be (optionally) a task status update message
                     # followed by 0 or more task results
                     try:
-                        logger.debug("[MAIN] Trying to unpack ")
+                        logger.info("[MAIN] Trying to unpack {}".format(b_messages))
                         manager_report = Message.unpack(b_messages[0])
                         if manager_report.task_statuses:
                             logger.info(f"[MAIN] Got manager status report: {manager_report.task_statuses}")
@@ -704,7 +706,10 @@ class Interchange(object):
                         self.task_outgoing.send_multipart([manager, b'', PKL_HEARTBEAT_CODE])
                         b_messages = b_messages[1:]
                         self._ready_manager_queue[manager]['last'] = time.time()
+                        self.container_switch_count[manager] = manager_report.container_switch_count
+                        logger.info(f"[MAIN] Got container switch count: {self.container_switch_count}")
                     except Exception:
+                        # logger.exception("Task delta unpack exception")
                         pass
                     if len(b_messages):
                         logger.info("[MAIN] Got {} result items in batch".format(len(b_messages)))

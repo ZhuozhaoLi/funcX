@@ -193,6 +193,8 @@ class Manager(object):
             args=(self._kill_event,)
         )
 
+        self.container_switch_count = 0
+
     def create_reg_message(self):
         """ Creates a registration message to identify the worker to the interchange
         """
@@ -256,8 +258,9 @@ class Manager(object):
                 pending_task_count, ready_worker_count))
 
             if pending_task_count < self.max_queue_size and ready_worker_count > 0:
-                logger.debug("[TASK_PULL_THREAD] Requesting tasks: {}".format(self.worker_map.ready_worker_type_counts))
-                msg = pickle.dumps(self.worker_map.ready_worker_type_counts)
+                adv = self.worker_map.ready_worker_type_counts
+                logger.debug("[TASK_PULL_THREAD] Requesting tasks: {}".format(adv))
+                msg = pickle.dumps(adv)
                 self.task_incoming.send(msg)
 
             # Receive results from the workers, if any
@@ -276,9 +279,10 @@ class Manager(object):
                         self.pending_result_queue.put(message)
                         self.worker_map.put_worker(w_id)
                         task_done_counter += 1
+                        logger.debug("Task done counter: {}".format(task_done_counter))
                         task_id = pickle.loads(message)['task_id']
                         task_type = self.task_type_mapping.pop(task_id)
-                        del self.task_status_deltas[task_id]
+                        self.task_status_deltas.pop(task_id, None)
                         logger.debug("Task type: {}".format(task_type))
                         self.outstanding_task_count[task_type] -= 1
                         logger.debug("Got result: Outstanding task counts: {}".format(self.outstanding_task_count))
@@ -299,17 +303,6 @@ class Manager(object):
 
                 except Exception as e:
                     logger.exception("[TASK_PULL_THREAD] FUNCX : caught {}".format(e))
-
-            # Spin up any new workers according to the worker queue.
-            # Returns the total number of containers that have spun up.
-            self.worker_procs.update(self.worker_map.spin_up_workers(self.next_worker_q,
-                                                                     mode=self.worker_mode,
-                                                                     debug=self.debug,
-                                                                     address=self.address,
-                                                                     uid=self.uid,
-                                                                     logdir=self.logdir,
-                                                                     worker_port=self.worker_port))
-            logger.debug(f"[SPIN UP] Worker processes: {self.worker_procs}")
 
             # Receive task batches from Interchange and forward to workers
             if self.task_incoming in socks and socks[self.task_incoming] == zmq.POLLIN:
@@ -379,11 +372,24 @@ class Manager(object):
             # NOTE: Wipes the queue -- previous scheduling loops don't affect what's needed now.
             self.next_worker_q, need_more = self.worker_map.get_next_worker_q(new_worker_map)
 
+            # Spin up any new workers according to the worker queue.
+            # Returns the total number of containers that have spun up.
+            self.worker_procs.update(self.worker_map.spin_up_workers(self.next_worker_q,
+                                                                     mode=self.worker_mode,
+                                                                     debug=self.debug,
+                                                                     address=self.address,
+                                                                     uid=self.uid,
+                                                                     logdir=self.logdir,
+                                                                     worker_port=self.worker_port))
+            logger.debug(f"[SPIN UP] Worker processes: {self.worker_procs}")
+
             #  Count the workers of each type that need to be removed
-            spin_downs = self.worker_map.spin_down_workers(new_worker_map,
-                                                           worker_max_idletime=self.worker_max_idletime,
-                                                           need_more=need_more,
-                                                           scheduler_mode=self.scheduler_mode)
+            spin_downs, container_switch_count = self.worker_map.spin_down_workers(new_worker_map,
+                                                                                   worker_max_idletime=self.worker_max_idletime,
+                                                                                   need_more=need_more,
+                                                                                   scheduler_mode=self.scheduler_mode)
+            self.container_switch_count += container_switch_count
+            logger.info("Container switch count: total {}, cur {}".format(self.container_switch_count, container_switch_count))
 
             for w_type in spin_downs:
                 self.remove_worker_init(w_type)
@@ -427,7 +433,8 @@ class Manager(object):
 
         while not kill_event.is_set():
             msg = ManagerStatusReport(
-                self.task_status_deltas
+                      self.task_status_deltas,
+                      self.container_switch_count,
             )
             logger.info(f"[STATUS] Sending status report to interchange: {msg.task_statuses}")
             self.pending_result_queue.put(msg)
