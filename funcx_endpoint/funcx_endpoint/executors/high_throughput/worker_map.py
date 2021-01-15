@@ -161,7 +161,8 @@ class WorkerMap(object):
                 max_remove = max(0, self.total_worker_type_counts[worker_type] - 1)
                 num_remove = min(num_remove, max_remove)
 
-            logger.debug("[SPIN DOWN] Removing {} workers of type {}".format(num_remove, worker_type))
+            if num_remove > 0:
+                logger.debug("[SPIN DOWN] Removing {} workers of type {}".format(num_remove, worker_type))
             for i in range(num_remove):
                 spin_downs.append(worker_type)
             if not check_idle:
@@ -311,3 +312,12 @@ class WorkerMap(object):
 
     def ready_worker_count(self):
         return sum(self.ready_worker_type_counts.values())
+
+    def advertisement(self):
+        ads = {'total': {}, 'free': {}}
+        total = dict(self.total_worker_type_counts)
+        for worker_type in self.pending_worker_type_counts:
+            total[worker_type] = total.get(worker_type, 0) + self.pending_worker_type_counts[worker_type] - self.to_die_count.get(worker_type, 0)
+        ads['total'].update(total)
+        ads['free'].update(self.ready_worker_type_counts)
+        return ads
