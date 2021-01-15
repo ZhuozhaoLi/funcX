@@ -258,7 +258,7 @@ class Manager(object):
                 pending_task_count, ready_worker_count))
 
             if pending_task_count < self.max_queue_size and ready_worker_count > 0:
-                adv = self.worker_map.ready_worker_type_counts
+                adv = self.worker_map.advertisement()
                 logger.debug("[TASK_PULL_THREAD] Requesting tasks: {}".format(adv))
                 msg = pickle.dumps(adv)
                 self.task_incoming.send(msg)
@@ -367,7 +367,6 @@ class Manager(object):
                                              new_worker_map,
                                              self.worker_map.to_die_count,
                                              logger=logger)
-            logger.debug("[SCHEDULER] New worker map: {}".format(new_worker_map))
 
             # NOTE: Wipes the queue -- previous scheduling loops don't affect what's needed now.
             self.next_worker_q, need_more = self.worker_map.get_next_worker_q(new_worker_map)
@@ -494,6 +493,7 @@ class Manager(object):
 
         logger.debug("[WORKER_REMOVE] Appending KILL message to worker queue {}".format(worker_type))
         self.worker_map.to_die_count[worker_type] += 1
+        # self.worker_map.ready_worker_type_counts[worker_type] -= 1
         self.task_queues[worker_type].put({"task_id": pickle.dumps(b"KILL"),
                                            "buffer": b'KILL'})
 
@@ -614,8 +614,8 @@ def cli_run():
         logger.exception("Caught error: {}".format(e))
         raise
     else:
-        logger.info("process_worker_pool exiting")
-        print("PROCESS_WORKER_POOL exiting")
+        logger.info("process_worker_pool exiting normally")
+        print("PROCESS_WORKER_POOL exiting normally")
 
 
 if __name__ == "__main__":
