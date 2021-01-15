@@ -589,6 +589,7 @@ class Interchange(object):
         # Anything altering the state of the manager should add it
         # onto this list.
         interesting_managers = set()
+        last_two_loop = time.time()
 
         while not self._kill_event.is_set():
             self.socks = dict(poller.poll(timeout=poll_period))
@@ -663,7 +664,7 @@ class Interchange(object):
                         manager_adv = pickle.loads(message[1])
                         logger.debug("[MAIN] Manager {} requested {}".format(manager, manager_adv))
                         self._ready_manager_queue[manager]['free_capacity'].update(manager_adv)
-                        self._ready_manager_queue[manager]['free_capacity']['total_workers'] = sum(manager_adv.values())
+                        self._ready_manager_queue[manager]['free_capacity']['total_workers'] = sum(manager_adv['free'].values())
                         interesting_managers.add(manager)
 
             # If we had received any requests, check if there are tasks that could be passed
@@ -672,10 +673,19 @@ class Interchange(object):
                 len(self._ready_manager_queue),
                 len(interesting_managers)))
 
-            task_dispatch, dispatched_task = naive_interchange_task_dispatch(interesting_managers,
-                                                                             self.pending_task_queue,
-                                                                             self._ready_manager_queue,
-                                                                             scheduler_mode=self.config.scheduler_mode)
+            if time.time() - last_two_loop > 10.0:
+                task_dispatch, dispatched_task = naive_interchange_task_dispatch(interesting_managers,
+                                                                                 self.pending_task_queue,
+                                                                                 self._ready_manager_queue,
+                                                                                 scheduler_mode=self.config.scheduler_mode,
+                                                                                 two_loop=True)
+                last_two_loop = time.time()
+            else:
+                task_dispatch, dispatched_task = naive_interchange_task_dispatch(interesting_managers,
+                                                                                 self.pending_task_queue,
+                                                                                 self._ready_manager_queue,
+                                                                                 scheduler_mode=self.config.scheduler_mode,
+                                                                                 two_loop=False)
             self.total_pending_task_count -= dispatched_task
 
             for manager in task_dispatch:
@@ -698,7 +708,7 @@ class Interchange(object):
                     # We expect the batch of messages to be (optionally) a task status update message
                     # followed by 0 or more task results
                     try:
-                        logger.info("[MAIN] Trying to unpack {}".format(b_messages))
+                        logger.debug("[MAIN] Trying to unpack {}".format(b_messages))
                         manager_report = Message.unpack(b_messages[0])
                         if manager_report.task_statuses:
                             logger.info(f"[MAIN] Got manager status report: {manager_report.task_statuses}")
@@ -767,6 +777,8 @@ class Interchange(object):
                 self.results_outgoing.send(pkl_package)
                 logger.info("[MAIN] Sent info response")
                 self._status_request.clear()
+        #except:
+        #    logger.error("Fatal error caught on interchange. Exiting", exc_info=True)
 
         delta = time.time() - start
         logger.info("Processed {} tasks in {} seconds".format(count, delta))
