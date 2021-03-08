@@ -220,13 +220,15 @@ class WorkerMap(object):
             modded_cmd = cmd
         elif mode == 'singularity_reuse':
             if container_uri is None:
-                logger.error("Worker mode is singularity, but no container is specified for task")
-                raise NameError("No container is specified")
+                logger.info("No container is specified for task, spawning a raw process worker")
+                modded_cmd = cmd
+                # raise NameError("No container is specified")
             # Theta
             # modded_cmd = f'singularity exec -H /home/skluzacek/ -H /project2/chard/skluzacek/ /home/skluzacek/{container_uri} {cmd}' 
             # Midway2
             # modded_cmd = f'singularity exec -H /home/skluzacek --bind /project2/chard/skluzacek:/project2/chard/skluzacek /home/skluzacek/{container_uri} {cmd}'
-            modded_cmd = f'singularity exec {container_cmd_options} {container_uri} {cmd}'
+            else:
+                modded_cmd = f'singularity exec {container_cmd_options} {container_uri} {cmd}'
             logger.info("Command string with singularity:\n {}".format(modded_cmd))
         else:
             raise NameError("Invalid container launch mode.")
