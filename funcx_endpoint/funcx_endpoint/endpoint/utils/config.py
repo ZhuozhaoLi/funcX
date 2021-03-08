@@ -74,10 +74,11 @@ class Config(RepresentationMixin):
                  cores_per_worker=1.0,
                  mem_per_worker=None,
                  launch_cmd=None,
-                 # Tuning info
                  worker_mode='no_container',
                  scheduler_mode='hard',
                  container_type=None,
+                 container_cmd_options="",
+                 # Tuning info
                  prefetch_capacity=10,
                  heartbeat_period=30,
                  heartbeat_threshold=120,
@@ -107,10 +108,13 @@ class Config(RepresentationMixin):
         self.mem_per_worker = mem_per_worker
         self.launch_cmd = launch_cmd
 
-        # Tuning info
+        # Container info
         self.worker_mode = worker_mode
         self.scheduler_mode = scheduler_mode
         self.container_type = container_type
+        self.container_cmd_options = container_cmd_options
+
+        # Tuning info
         self.prefetch_capacity = prefetch_capacity
         self.heartbeat_period = heartbeat_period
         self.heartbeat_threshold = heartbeat_threshold

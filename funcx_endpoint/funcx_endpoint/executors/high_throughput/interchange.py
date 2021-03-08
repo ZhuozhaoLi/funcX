@@ -256,6 +256,7 @@ class Interchange(object):
                                "--hb_period={heartbeat_period} "
                                "--hb_threshold={heartbeat_threshold} "
                                "--worker_mode={worker_mode} "
+                               "--container_cmd_options='{container_cmd_options}' "
                                "--scheduler_mode={scheduler_mode} "
                                "--log_max_bytes={log_max_bytes} "
                                "--log_backup_count={log_backup_count} "
@@ -315,6 +316,7 @@ class Interchange(object):
                                        heartbeat_threshold=self.config.heartbeat_threshold,
                                        poll_period=self.config.poll_period,
                                        worker_mode=self.config.worker_mode,
+                                       container_cmd_options=self.config.container_cmd_options,
                                        scheduler_mode=self.config.scheduler_mode,
                                        logdir=working_dir,
                                        log_max_bytes=self.config.log_max_bytes,
