@@ -82,7 +82,7 @@ jobs:
       id: extract_tag_name
 
     - name: Build funcX-endpoint Image
-      uses: elgohr/Publish-Docker-Github-Action@master
+      uses: elgohr/Publish-Docker-Github-Action@v5
       with:
         dockerfile: Dockerfile-endpoint
         name: funcx/kube-endpoint:${{ steps.extract_tag_name.outputs.imagetag }}
